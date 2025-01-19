@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import useDataStore from "@/store/Store";
+import { useCookies } from 'react-cookie';
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,7 @@ export default function Usermodal() {
     const container = useRef(null);
     const [open, setOpen] = useState(true);
     const [name, setName] = useState("");
+    const [cookies, setCookies] = useCookies(['name']);
 
     const nameStore = useDataStore((state) => state.name);
     const addNameStore = useDataStore((state) => state.setName);
@@ -22,9 +24,14 @@ export default function Usermodal() {
     const handleName = (e) => {
         e.preventDefault();
         addNameStore(name);
+        setCookies('name', name, { path: '/' });
     };
 
     useEffect(() => {
+        if (cookies.name) {
+            addNameStore(cookies.name);
+        }
+
         if (!nameStore) {
             setOpen(true);
         } else {
@@ -33,7 +40,7 @@ export default function Usermodal() {
                 container.current.style.display = "none";
             }, 500);
         }
-    }, [nameStore]);
+    }, [cookies.name, nameStore]);
     return (
         <div ref={container} className={`absolute ease-in-out inset-0 flex items-center justify-center`}>
             <div className={`absolute inset-0 transition-all ${open ? "opacity-100 bg-background bg-opacity-50  backdrop-blur-md" : "opacity-0"}`}></div>
