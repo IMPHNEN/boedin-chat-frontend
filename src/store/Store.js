@@ -15,20 +15,21 @@ const useDataStore = create((set) => ({
 
 	syncUser: () => {
         // console.log('Sinkronisasi dilakukan!');
+		const token = localStorage.getItem("identifier");
+		const name = localStorage.getItem("name");
+		let userData = {};
 		try {
-            const token = localStorage.getItem("identifier");
-			const name = localStorage.getItem("name");
-			if (!token) {
-                set({
-					user: { name: name, role: "test" },
-					isAuthenticated: true 
-				});
-			} else {
-                set({ 
-					user: { name: name, role: decodeToken(token).role },
-					isAuthenticated: true 
-				});
-			}
+			userData.name = name;
+			userData.role = (!token) ? "test" : decodeToken(token).role;
+			// if (!token) {
+			// 	userData.role = "test";
+			// } else {
+			// 	userData.role = decodeToken(token).role;
+			// }
+			set({
+				user: userData,
+				isAuthenticated: true 
+			});
 		} catch (error) {
             console.error("Sinkronisasi error: ", error);
 		}

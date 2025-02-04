@@ -9,50 +9,124 @@ import ReactQuill from "react-quill-new";
 import "react-quill/dist/quill.snow.css";
 import { WEBSOCKET_URI } from "@/config/constants";
 // import "react-quill-new/dist/quill.snow.css";
-// import ReactQuill from "react-quill";
+import useWebSocket, { ReadyState } from 'react-use-websocket'
 
 const ChatBox = () => {
-  	const [openInput, setOpenInput] = useState(false);
-  	// const nameStore = useDataStore((state) => state.name);
+	const [openInput, setOpenInput] = useState(false);
+	// const nameStore = useDataStore((state) => state.name);
 	// const syncUser = useDataStore((state) => state.syncUser);
 	// // const [currentUser, setCurrentUser] = useState(null);
-	// const isAuthenticated = useDataStore((state) => state.isAuthenticated);
+	const isAuthenticated = useDataStore((state) => state.isAuthenticated);
 	const user = useDataStore((state) => state.user);
-  	const quillRef = useRef(null);
-  	const [sidebarVisible, setSidebarVisible] = useState(true); // State untuk sidebar
+	const token = useDataStore((state) => state.token);
+	const quillRef = useRef(null);
+	const [sidebarVisible, setSidebarVisible] = useState(true); // State untuk sidebar
 
-  	const [messages, setMessages] = useState([]);
+	const [messages, setMessages] = useState([]);
 
-  	// const currentUser = nameStore || user?.name || localStorage.getItem('name');
-  	const [inputMessage, setInputMessage] = useState("");
+	// const currentUser = nameStore || user?.name || localStorage.getItem('name');
+	const [inputMessage, setInputMessage] = useState("");
 
-  	const [socket, setSocket] = useState(null);
+	const [socket, setSocket] = useState(null);
 
-    /*
-        Kode di bawah hanya bersifat backup,
-        jika websocket sedang maintenance.
-    */
+	/*
+		Kode di bawah hanya bersifat backup,
+		jika websocket sedang maintenance.
+	*/
 
-    // const handleSendButton = () => {
-    //     // console.log("Pesan ada di component chat input", inputMessage);
-    //     setMessages((prev) => [
-    //         ...prev,
-    //         {
-    //             name: currentUser,
-    //             message: inputMessage,
-    //             time: new Date().toISOString(),
-    //         },
-    //     ]);
-    //     setInputMessage("");
-    // };
+	// const handleSendButton = () => {
+	//     // console.log("Pesan ada di component chat input", inputMessage);
+	//     setMessages((prev) => [
+	//         ...prev,
+	//         {
+	//             name: currentUser,
+	//             message: inputMessage,
+	//             time: new Date().toISOString(),
+	//         },
+	//     ]);
+	//     setInputMessage("");
+	// };
 
-    /*
-        End of backup code
-    */
+	/*
+		End of backup code
+	*/
 
-    const handleSendButton = () => {
-        const editor = quillRef.current?.getEditor();
-        let content = editor?.root.innerHTML.trim(); // Ambil konten rich text sebagai HTML
+	/*
+		Kode di bawah adalah implementasi hook react-use-websocket,
+		jika ws legacy aman, kode ini bisa diganti
+	*/
+	const {
+		sendJsonMessage,
+		lastJsonMessage,
+		readyState,
+		getWebSocket,
+	} = useWebSocket(WEBSOCKET_URI, {
+		share: false,
+		shouldConnect: isAuthenticated && !!token,
+		reconnectAttempts: 5,
+		reconnectInterval: 3000,
+		onOpen: () => {
+			console.log('WebSocket Connected, sending auth token');
+			// Get token from localStorage
+			const storedToken = localStorage.getItem('identifier');
+			console.log('Stored token: ', storedToken ? 'exists' : 'missing');
+		
+			if (!storedToken) {
+				console.error('No token in localStorage');
+				return;
+			}
+
+			// Send token immediately on connection
+			sendJsonMessage({ 
+				token: token?.trim() || storedToken // Ensure token is properly formatted
+			});
+
+			// try {
+			// 	// Send token immediately on connection
+			// 	sendJsonMessage({ 
+			// 		token: token.trim() // Ensure token is properly formatted
+			// 	});
+			// 	console.log('Auth token sent:', { token: token });
+			// 	setSocket(getWebSocket());
+			// 	setOpenInput(true);
+			// } catch (err) {
+			// 	console.error("Error during WebSocket authentication:", err);
+			// 	setOpenInput(false);
+			// }
+			console.log('Auth message sent');
+			setSocket(getWebSocket());
+			setOpenInput(true);
+		},
+		onMessage: (event) => {
+			try {
+				const data = JSON.parse(event.data);
+				const incomingMessage = Array.isArray(data) ? data : [data];
+				setMessages(prev => [...prev, ...incomingMessage].slice(-29));
+			} catch (err) {
+				console.error("Message processing error:", err);
+			}
+		},
+		onError: (error) => {
+			console.error("WebSocket error:", error);
+			setOpenInput(false);
+		},
+		onClose: () => {
+			console.log("WebSocket disconnected");
+			setOpenInput(false);
+		},
+		//Will attempt to reconnect on all close events, such as server shutting down
+		shouldReconnect: (closeEvent) => true,
+		// Add retryOnError
+		retryOnError: true
+	});
+	/*
+		End of websocket react hook code
+	*/
+
+
+	const handleSendButton = () => {
+		const editor = quillRef.current?.getEditor();
+		let content = editor?.root.innerHTML.trim(); // Ambil konten rich text sebagai HTML
 
 		// Simpan tag <img> dalam array dan ganti sementara dengan placeholder
 		const images = [];
@@ -61,21 +135,21 @@ const ChatBox = () => {
 			return `[[IMG-${images.length - 1}]]`; // Gantikan <img> dengan placeholder
 		});
 
-  		// Hapus semua tag HTML lain (kecuali <img>)
-  		let contentWithoutHTML = contentWithImages.replace(/<\/?[^>]+(>|$)/g, "");
+		// Hapus semua tag HTML lain (kecuali <img>)
+		let contentWithoutHTML = contentWithImages.replace(/<\/?[^>]+(>|$)/g, "");
 
-  		// Jika hanya ada spasi atau newline, jangan lanjutkan
-  		if (!contentWithoutHTML || contentWithoutHTML.trim().length === 0) {
-    			return; // Jangan kirim jika kosong atau hanya newline
-  		}
+		// Jika hanya ada spasi atau newline, jangan lanjutkan
+		if (!contentWithoutHTML || contentWithoutHTML.trim().length === 0) {
+			return; // Jangan kirim jika kosong atau hanya newline
+		}
 
-        // Hapus elemen <p><br></p> dan <span class="ql-cursor">
-        content = contentWithImages.replace(/<p><br><\/p>$/, "").replace('<span class="ql-cursor">﻿</span>', ""); // Hapus elemen kursor kosong
+		// Hapus elemen <p><br></p> dan <span class="ql-cursor">
+		content = contentWithImages.replace(/<p><br><\/p>$/, "").replace('<span class="ql-cursor">﻿</span>', ""); // Hapus elemen kursor kosong
 
-        // Kembalikan tag <img> ke posisi semula
-        content = content.replace(/\[\[IMG-(\d+)\]\]/g, (match, index) => {
-            return images[index]; // Kembalikan tag <img> ke posisi semula
-        });
+		// Kembalikan tag <img> ke posisi semula
+		content = content.replace(/\[\[IMG-(\d+)\]\]/g, (match, index) => {
+			return images[index]; // Kembalikan tag <img> ke posisi semula
+		});
 
 		try {
 			// Persiapkan data pesan
@@ -86,7 +160,8 @@ const ChatBox = () => {
 			};
 			// Kirim pesan jika WebSocket tersedia
 			if (socket) {
-				socket.send(JSON.stringify(messageData)); // Kirim pesan melalui WebSocket
+				sendJsonMessage(messageData) // Kirim pesan melalui WebSocket React Hook
+				// socket.send(JSON.stringify(messageData)); // Kirim pesan melalui WebSocket
 			}
 		} catch (error) {
 			console.error("Test message failed to sent! :", error);
@@ -106,33 +181,54 @@ const ChatBox = () => {
 		}
 	};
 
+	
+	// Original Websocket
+	// useEffect(() => {
+	// 	if(!isAuthenticated) return;
+	// 	const ws = new WebSocket(WEBSOCKET_URI);
+	// 	setSocket(ws);
+
+	// 	ws.onopen = () => {
+	// 		ws.send(JSON.stringify({ token: token }));
+	// 		console.log("WebSocket connected")
+	// 	}
+	// 	ws.onclose = () => console.log("WebSocket disconnected");
+	// 	ws.onerror = (error) => console.error("WebSocket error: ", error);
+
+	// 	ws.onmessage = (event) => {
+	// 		const data = JSON.parse(event.data);
+
+	// 		const incomingMessage = Array.isArray(data) ? data: [data];
+
+	// 		setMessages((prev) => {
+	// 			const newMessages = [...prev, ...incomingMessage];
+	// 			return newMessages.slice(-29); // hanya mengambil 29 pesan terakhir
+	// 		});
+	// 	};
+
+	// 	setOpenInput(true);
+	// 	return () => ws.close();
+	// }, [isAuthenticated, token]);
+
+	/*
+		Websocket react hook status logging
+	*/
 	useEffect(() => {
-		const token = localStorage.getItem('identifier');
-		if(!token) return;
+		if (!isAuthenticated) return;
 
-		const ws = new WebSocket(WEBSOCKET_URI);
-		setSocket(ws);
-
-		ws.onopen = () => {
-			ws.send(JSON.stringify({ token }));
-			console.log("WebSocket connected")
-		}
-		ws.onclose = () => console.log("WebSocket disconnected");
-		ws.onerror = (error) => console.error("WebSocket error: ", error);
-
-		ws.onmessage = (event) => {
-			const data = JSON.parse(event.data);
-			const incomingMessage = Array.isArray(data) ? data: [data];
-
-			setMessages((prev) => {
-				const newMessages = [...prev, ...incomingMessage];
-				return newMessages.slice(-29); // hanya mengambil 29 pesan terakhir
-			});
-		};
-
-		setOpenInput(true);
-		return () => ws.close();
-	}, []);
+		const connectionStatus = {
+			[ReadyState.CONNECTING]: 'Connecting',
+			[ReadyState.OPEN]: 'Open',
+			[ReadyState.CLOSING]: 'Closing',
+			[ReadyState.CLOSED]: 'Closed',
+			[ReadyState.UNINSTANTIATED]: 'Uninstantiated',
+		}[readyState];
+	
+		console.log('WebSocket Status:', connectionStatus);
+	}, [isAuthenticated, readyState, token]);
+	/*
+		End of websocket react hook code
+	*/
 
   	const chatContainer = useRef();
 
