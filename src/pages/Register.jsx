@@ -21,52 +21,70 @@ export default function Register() {
 	const [isLoading, setIsLoading] = useState(true);
 
 	// const addNameStore = useDataStore((state) => state.setName);
-	// const setUser = useDataStore((state) => state.setUser);
+	const setUser = useDataStore((state) => state.setUser);
 	const setToken = useDataStore((state) => state.setToken);
 	// const isAuthenticated = useDataStore((state) => state.isAuthenticated);
 
 	const navigate = useNavigate();
 
-	const register = async () => {
+	// const register = async () => {
+	// 	try {
+	// 		const response = await fetch(`${BACKEND_HTTP_URI}/api/auth/register`, {
+	// 			method: "POST",
+	// 			headers: {
+	// 				"Content-Type": "application/json",
+	// 				Accept: "application/json",
+	// 			},
+	// 			body: JSON.stringify({
+	// 				username: name,
+	// 			}),
+	// 		});
+	// 		if (response.ok) {
+	// 			const data = await response.json();
+	// 			setToken(data.token);
+	// 		} else {
+	// 			setError("Register gagal");
+	// 		}
+	// 		setIsLoading(false);
+	// 	} catch (error) {
+	// 		console.error("Failed to regist user: ", error);
+	// 		setError(
+	// 			"Failed to regist user: " + (error instanceof Error)
+	// 				? error.message
+	// 				: "Unknown error"
+	// 		);
+	// 		setIsLoading(false);
+	// 		return null;
+	// 	}
+	// };
+
+	const register = () => {
+		if(!name) return;
 		try {
-			const response = await fetch(`${BACKEND_HTTP_URI}/api/auth/register`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Accept: "application/json",
-				},
-				body: JSON.stringify({
-					username: name,
-				}),
+			localStorage.setItem("name", name)
+			setUser({
+				name: name,
+				role: "test"
 			});
-			if (response.ok) {
-				const data = await response.json();
-				setToken(data.token);
-			} else {
-				setError("Register gagal");
-			}
-			setIsLoading(false);
 		} catch (error) {
 			console.error("Failed to regist user: ", error);
-			setError(
-				"Failed to regist user: " + (error instanceof Error)
-					? error.message
-					: "Unknown error"
-			);
-			setIsLoading(false);
-			return null;
+			setError(error);
 		}
-	};
+		setIsLoading(false);
+	}
 
 	const handleSubmit = (e) => {
 		e.preventDefault();
 		register();
+		window.location.reload();
 		if (!isLoading && !error) navigate("/", { replace: true });
 	};
 
 	useEffect(() => {
-		const localToken = localStorage.getItem("identifier");
-		if (localToken) return navigate("/", { replace: true });
+		// const localToken = localStorage.getItem("identifier");
+		// if (localToken) return navigate("/", { replace: true });
+		const localName = localStorage.getItem("name");
+		if (localName) return navigate("/", { replace: true });
 	}, [navigate]);
 
 	return (

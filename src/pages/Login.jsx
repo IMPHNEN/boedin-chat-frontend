@@ -37,7 +37,7 @@ export default function Login() {
 					<NavLink
 						to={`${BACKEND_HTTP_URI}/api/auth/login`}
 						className="bg-accent text-white px-1.5 py-3 text-center"
-						target="_blank"
+						// target="_blank"
 					>
 						Login dengan discord
 					</NavLink>
